@@ -1,4 +1,4 @@
-# 🌌 PulseSRE — Full-Stack DevOps Observability Hub & Deployment Panel
+# 🌌 grafmon — Full-Stack DevOps Observability Hub & Deployment Panel
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen?style=for-the-badge&logo=github-actions)]()
 [![Docker Compose](https://img.shields.io/badge/Docker--Compose-v2.20+-blue?style=for-the-badge&logo=docker)]()
