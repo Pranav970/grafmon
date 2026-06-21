@@ -1,4 +1,3 @@
-```markdown
 # 🌌 PulseSRE — Full-Stack DevOps Observability Hub & Deployment Panel
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen?style=for-the-badge&logo=github-actions)]()
