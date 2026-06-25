@@ -1,1 +1,14 @@
+services:
 
+  app:
+    build:
+      target: development
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./app/src:/app/src:ro
+    command: ["node", "--watch", "src/index.js"]
+
+  nginx:
+    ports:
+      - "8080:80"
