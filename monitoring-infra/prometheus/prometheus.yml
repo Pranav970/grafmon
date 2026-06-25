@@ -1,1 +1,59 @@
+global:
+  scrape_interval:     15s
+  evaluation_interval: 15s
+  scrape_timeout:      10s
 
+  external_labels:
+    monitor: 'monitoring-infra'
+    environment: 'production'
+
+# ── Alertmanager connection ───────────────────────────────────────────────────
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+      timeout: 10s
+      api_version: v2
+
+# ── Alert rule files ──────────────────────────────────────────────────────────
+rule_files:
+  - "rules/*.yml"
+
+# ── Scrape jobs ───────────────────────────────────────────────────────────────
+scrape_configs:
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+        labels:
+          instance: 'prometheus-self'
+
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          instance: 'docker-host'
+          group: 'infrastructure'
+
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx-exporter:9113']
+        labels:
+          instance: 'nginx-proxy'
+          group: 'infrastructure'
+
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets: ['alertmanager:9093']
+        labels:
+          instance: 'alertmanager-self'
+
+  - job_name: 'target-app'
+    # Prometheus reaches the app directly inside the Docker network,
+    # bypassing Nginx (which blocks /metrics on port 80).
+    static_configs:
+      - targets: ['app:3000']
+        labels:
+          instance: 'target-app'
+          group: 'application'
+    metrics_path: /metrics
