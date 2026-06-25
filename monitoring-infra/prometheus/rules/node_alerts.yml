@@ -1,1 +1,92 @@
+groups:
+  - name: node_alerts
+    interval: 30s
+    rules:
 
+      - alert: HighCpuUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage has been above 80% for more than 5 minutes. Current value: {{ $value | printf \"%.1f\" }}%"
+          runbook: "Check running processes with `top` or `htop`. Look for runaway jobs or unexpected load spikes."
+
+      - alert: CriticalCpuUsage
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 95
+        for: 2m
+        labels:
+          severity: critical
+          team: infrastructure
+        annotations:
+          summary: "CRITICAL CPU usage on {{ $labels.instance }}"
+          description: "CPU usage has been above 95% for more than 2 minutes. Current value: {{ $value | printf \"%.1f\" }}%. Immediate action required."
+          runbook: "Consider killing non-essential processes or scaling horizontally."
+
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage has been above 85% for more than 5 minutes. Current value: {{ $value | printf \"%.1f\" }}%"
+          runbook: "Check for memory leaks with `ps aux --sort=-%mem`. Consider restarting leaking services."
+
+      - alert: CriticalMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          team: infrastructure
+        annotations:
+          summary: "CRITICAL memory usage on {{ $labels.instance }}"
+          description: "Memory usage is {{ $value | printf \"%.1f\" }}% — OOM kill risk is high."
+          runbook: "Run `dmesg | grep -i oom` to check for recent OOM events. Restart or scale immediately."
+
+      - alert: DiskSpaceLow
+        expr: (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"})) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }} ({{ $labels.mountpoint }})"
+          description: "Filesystem {{ $labels.mountpoint }} is {{ $value | printf \"%.1f\" }}% full (threshold: 80%)"
+          runbook: "Run `du -sh /* | sort -rh | head -20` to find large directories."
+
+      - alert: DiskSpaceCritical
+        expr: (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"})) * 100 > 95
+        for: 2m
+        labels:
+          severity: critical
+          team: infrastructure
+        annotations:
+          summary: "CRITICAL disk space on {{ $labels.instance }} ({{ $labels.mountpoint }})"
+          description: "Filesystem {{ $labels.mountpoint }} is {{ $value | printf \"%.1f\" }}% full. Write failures are imminent."
+          runbook: "Clear logs, tmp files, or old Docker images immediately: `docker system prune -f`"
+
+      - alert: NodeExporterDown
+        expr: up{job="node-exporter"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: infrastructure
+        annotations:
+          summary: "Node Exporter is unreachable on {{ $labels.instance }}"
+          description: "Node Exporter has not responded for more than 1 minute. Host metrics are unavailable."
+          runbook: "Check if the node-exporter container is running: `docker ps | grep node-exporter`"
+
+      - alert: HighDiskIOWait
+        expr: avg(rate(node_cpu_seconds_total{mode="iowait"}[5m])) * 100 > 20
+        for: 5m
+        labels:
+          severity: warning
+          team: infrastructure
+        annotations:
+          summary: "High disk I/O wait on {{ $labels.instance }}"
+          description: "CPU iowait has been above 20% for 5 minutes. Current: {{ $value | printf \"%.1f\" }}%. Disk or storage may be saturated."
+          runbook: "Run `iostat -x 1 5` to identify the saturated device."
