@@ -1,1 +1,109 @@
+groups:
+  - name: app_alerts
+    interval: 30s
+    rules:
 
+      - alert: AppDown
+        expr: up{job="target-app"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: application
+        annotations:
+          summary: "Node.js app is unreachable"
+          description: "Prometheus cannot scrape the target-app /metrics endpoint. The app may have crashed."
+          runbook: "Check container: `docker logs target-app --tail=50`. Restart: `docker compose restart app`."
+
+      - alert: HighAppErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{job="target-app", status_code=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{job="target-app"}[5m]))
+          ) * 100 > 5
+        for: 5m
+        labels:
+          severity: warning
+          team: application
+        annotations:
+          summary: "High HTTP 5xx error rate on target-app"
+          description: "{{ $value | printf \"%.1f\" }}% of requests are returning 5xx errors (threshold: 5%)"
+          runbook: "Check recent logs: `docker logs target-app --tail=100 | grep error`"
+
+      - alert: CriticalAppErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{job="target-app", status_code=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{job="target-app"}[5m]))
+          ) * 100 > 25
+        for: 2m
+        labels:
+          severity: critical
+          team: application
+        annotations:
+          summary: "CRITICAL HTTP error rate on target-app"
+          description: "{{ $value | printf \"%.1f\" }}% of requests are failing. Immediate investigation required."
+          runbook: "Check container health and upstream dependencies."
+
+      - alert: HighAppLatencyP99
+        expr: |
+          histogram_quantile(0.99,
+            sum by (le, route) (rate(http_request_duration_seconds_bucket{job="target-app"}[5m]))
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+          team: application
+        annotations:
+          summary: "High p99 response time on target-app ({{ $labels.route }})"
+          description: "p99 latency is {{ $value | printf \"%.2f\" }}s on route {{ $labels.route }} (threshold: 2s)"
+          runbook: "Profile the slow route. Check for N+1 queries or blocking I/O."
+
+      - alert: HighAppLatencyP99Critical
+        expr: |
+          histogram_quantile(0.99,
+            sum by (le) (rate(http_request_duration_seconds_bucket{job="target-app"}[5m]))
+          ) > 5
+        for: 2m
+        labels:
+          severity: critical
+          team: application
+        annotations:
+          summary: "CRITICAL p99 response time on target-app"
+          description: "p99 latency is {{ $value | printf \"%.2f\" }}s across all routes (threshold: 5s). SLA breach likely."
+          runbook: "Check for resource exhaustion: CPU, memory, downstream services."
+
+      - alert: AppHighInFlightRequests
+        expr: sum(http_requests_in_flight{job="target-app"}) > 50
+        for: 2m
+        labels:
+          severity: warning
+          team: application
+        annotations:
+          summary: "High number of in-flight requests on target-app"
+          description: "{{ $value }} requests currently in-flight (threshold: 50). App may be slow or overloaded."
+          runbook: "Check if there is a downstream bottleneck causing requests to pile up."
+
+      - alert: NodeJsHeapAlmostFull
+        expr: |
+          (nodejs_heap_size_used_bytes{job="target-app"} / nodejs_heap_size_total_bytes{job="target-app"}) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          team: application
+        annotations:
+          summary: "Node.js heap nearly full on target-app"
+          description: "Heap usage is {{ $value | printf \"%.1f\" }}% of available heap (threshold: 85%). GC pressure increasing."
+          runbook: "Take a heap snapshot. Check for memory leaks. Consider increasing --max-old-space-size."
+
+      - alert: NodeJsEventLoopLagHigh
+        expr: nodejs_eventloop_lag_p99_seconds{job="target-app"} > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          team: application
+        annotations:
+          summary: "High Node.js event loop lag on target-app"
+          description: "p99 event loop lag is {{ $value | printf \"%.3f\" }}s (threshold: 500ms). CPU-bound work may be blocking the loop."
+          runbook: "Look for synchronous heavy computation. Use worker_threads or move CPU work out of the main thread."
