@@ -1,1 +1,64 @@
+{{ define "email.subject" -}}
+  [{{ .Status | toUpper }}] {{ .GroupLabels.alertname }}
+  {{- if .GroupLabels.instance }} on {{ .GroupLabels.instance }}{{ end }}
+  ({{ len .Alerts }} alert{{ if gt (len .Alerts) 1 }}s{{ end }})
+{{- end }}
 
+{{ define "email.html" -}}
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body      { font-family: Arial, sans-serif; font-size: 14px; color: #333; }
+    .header   { padding: 16px; border-radius: 4px 4px 0 0; color: white; }
+    .firing   { background-color: #d32f2f; }
+    .resolved { background-color: #388e3c; }
+    .warning  { background-color: #f57c00; }
+    .alert    { border: 1px solid #ddd; border-radius: 4px; margin: 12px 0; padding: 12px; }
+    .label    { font-weight: bold; display: inline-block; width: 90px; }
+    .critical { border-left: 4px solid #d32f2f; }
+    .warn     { border-left: 4px solid #f57c00; }
+    .ok       { border-left: 4px solid #388e3c; }
+    pre       { background: #f5f5f5; padding: 8px; border-radius: 3px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="header {{ if eq .Status "resolved" }}resolved{{ else }}{{ if eq (index .Alerts 0).Labels.severity "critical" }}firing{{ else }}warning{{ end }}{{ end }}">
+    <h2 style="margin:0">
+      {{ if eq .Status "firing" }}
+        {{ if eq (index .Alerts 0).Labels.severity "critical" }}🔴 CRITICAL{{ else }}🟡 WARNING{{ end }}
+      {{ else }}
+        ✅ RESOLVED
+      {{ end }}
+      — {{ .GroupLabels.alertname }}
+    </h2>
+    <p style="margin:4px 0 0">{{ len .Alerts }} alert{{ if gt (len .Alerts) 1 }}s{{ end }} · {{ .Status | toUpper }}</p>
+  </div>
+
+  {{ range .Alerts }}
+  <div class="alert {{ if eq $.Status "resolved" }}ok{{ else if eq .Labels.severity "critical" }}critical{{ else }}warn{{ end }}">
+    <p><span class="label">Alert:</span>    {{ .Labels.alertname }}</p>
+    <p><span class="label">Severity:</span> {{ .Labels.severity }}</p>
+    {{ if .Labels.instance }}
+    <p><span class="label">Instance:</span> <code>{{ .Labels.instance }}</code></p>
+    {{ end }}
+    <p><span class="label">Summary:</span>  {{ .Annotations.summary }}</p>
+    <p><span class="label">Details:</span>  {{ .Annotations.description }}</p>
+    {{ if .Annotations.runbook }}
+    <p><span class="label">Runbook:</span>  {{ .Annotations.runbook }}</p>
+    {{ end }}
+    <p><span class="label">Started:</span>  {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}</p>
+    {{ if eq $.Status "resolved" }}
+    <p><span class="label">Resolved:</span> {{ .EndsAt.Format "2006-01-02 15:04:05 UTC" }}</p>
+    {{ end }}
+    <p><a href="{{ .GeneratorURL }}">View in Prometheus →</a></p>
+  </div>
+  {{ end }}
+
+  <p style="color:#999;font-size:12px;margin-top:24px">
+    Sent by Prometheus Alertmanager · monitoring-infra stack
+  </p>
+</body>
+</html>
+{{- end }}
