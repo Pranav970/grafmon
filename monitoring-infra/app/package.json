@@ -1,1 +1,15 @@
-
+{
+  "name": "target-app",
+  "version": "1.0.0",
+  "description": "Simple Node.js app instrumented with prom-client for Prometheus scraping",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "prom-client": "^15.1.3"
+  }
+}
