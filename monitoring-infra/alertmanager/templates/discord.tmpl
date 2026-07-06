@@ -1,1 +1,49 @@
+{{/*
+  Discord uses incoming webhooks that accept a JSON payload with a "content" field.
+  Alertmanager's webhook_configs POST the Alertmanager JSON payload, so we need
+  a webhook receiver or a small adapter (like alertmanager-discord) to translate it.
 
+  The recommended pattern for Discord is to run the lightweight
+  `benjojo/alertmanager-discord` sidecar which accepts Alertmanager webhook
+  payloads and translates them into Discord embeds.
+
+  Set DISCORD_WEBHOOK_URL to your Discord channel webhook URL.
+
+  If using the sidecar approach, point the Alertmanager webhook receiver at the
+  sidecar (e.g. http://discord-bridge:9094) instead of Discord directly.
+
+  Embed content template (used by the sidecar or a custom adapter):
+*/}}
+
+{{ define "discord.title" -}}
+  {{- if eq .Status "firing" -}}
+    {{- if eq (index .Alerts 0).Labels.severity "critical" -}}
+      🔴 **CRITICAL** — {{ .GroupLabels.alertname }}
+    {{- else -}}
+      🟡 **WARNING** — {{ .GroupLabels.alertname }}
+    {{- end -}}
+  {{- else -}}
+    ✅ **RESOLVED** — {{ .GroupLabels.alertname }}
+  {{- end }}
+{{- end }}
+
+{{ define "discord.message" -}}
+**Status:** {{ .Status | toUpper }}
+{{ range .Alerts -}}
+**Alert:** {{ .Labels.alertname }}
+**Severity:** {{ .Labels.severity }}
+{{- if .Labels.instance }}
+**Instance:** `{{ .Labels.instance }}`
+{{- end }}
+**Summary:** {{ .Annotations.summary }}
+**Details:** {{ .Annotations.description }}
+{{- if .Annotations.runbook }}
+**Runbook:** {{ .Annotations.runbook }}
+{{- end }}
+**Started:** {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+{{- if eq $.Status "resolved" }}
+**Resolved:** {{ .EndsAt.Format "2006-01-02 15:04:05 UTC" }}
+{{- end }}
+
+{{ end -}}
+{{- end }}
