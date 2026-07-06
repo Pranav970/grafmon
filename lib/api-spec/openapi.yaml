@@ -1,1 +1,280 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: DevOps Control Panel API — manages the monitoring-infra Docker Compose stack
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: docker
+    description: Docker Compose stack management
+  - name: config
+    description: Configuration file management
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
 
+  /docker/status:
+    get:
+      operationId: getDockerStatus
+      tags: [docker]
+      summary: Get all container statuses
+      description: Returns real-time status for every container in the monitoring stack
+      responses:
+        "200":
+          description: Container list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ContainerStatus"
+
+  /docker/up:
+    post:
+      operationId: startStack
+      tags: [docker]
+      summary: Start the monitoring stack
+      description: Runs docker compose up -d for the full stack
+      responses:
+        "200":
+          description: Result of the deploy operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeployResult"
+
+  /docker/down:
+    post:
+      operationId: stopStack
+      tags: [docker]
+      summary: Stop the monitoring stack
+      description: Runs docker compose down for the full stack
+      responses:
+        "200":
+          description: Result of the stop operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeployResult"
+
+  /docker/restart:
+    post:
+      operationId: restartService
+      tags: [docker]
+      summary: Restart a specific service or the whole stack
+      description: Runs docker compose restart [service?]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RestartInput"
+      responses:
+        "200":
+          description: Result of the restart operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeployResult"
+
+  /services/links:
+    get:
+      operationId: getServiceLinks
+      tags: [docker]
+      summary: Get quick-access links for all running services
+      description: Returns URLs for Grafana, Prometheus, Alertmanager, and the app
+      responses:
+        "200":
+          description: List of service links
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ServiceLink"
+
+  /config/prometheus:
+    get:
+      operationId: getPrometheusConfig
+      tags: [config]
+      summary: Get current Prometheus configuration
+      responses:
+        "200":
+          description: Prometheus config values
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrometheusConfig"
+    put:
+      operationId: updatePrometheusConfig
+      tags: [config]
+      summary: Update Prometheus configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PrometheusConfig"
+      responses:
+        "200":
+          description: Result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfigResult"
+
+  /config/alertmanager:
+    get:
+      operationId: getAlertmanagerConfig
+      tags: [config]
+      summary: Get current Alertmanager configuration
+      responses:
+        "200":
+          description: Alertmanager config values
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertmanagerConfig"
+    put:
+      operationId: updateAlertmanagerConfig
+      tags: [config]
+      summary: Update Alertmanager configuration (rewrites the env section)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlertmanagerConfig"
+      responses:
+        "200":
+          description: Result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfigResult"
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+
+    ContainerStatus:
+      type: object
+      required: [name, service, status, health, uptime, ports]
+      properties:
+        name:
+          type: string
+          description: Docker container name
+        service:
+          type: string
+          description: Logical service name (prometheus, grafana, nginx, app, etc.)
+        status:
+          type: string
+          description: "running | stopped | restarting | exited | created"
+        health:
+          type: string
+          description: "healthy | unhealthy | starting | none"
+        uptime:
+          type: string
+          description: Human-readable uptime string
+        ports:
+          type: array
+          items:
+            type: string
+          description: Published port mappings
+
+    DeployResult:
+      type: object
+      required: [success, output, exitCode]
+      properties:
+        success:
+          type: boolean
+        output:
+          type: string
+          description: Combined stdout/stderr from the docker compose command
+        exitCode:
+          type: integer
+
+    RestartInput:
+      type: object
+      properties:
+        service:
+          type: ["string", "null"]
+          description: Service name to restart; omit or null to restart everything
+
+    ServiceLink:
+      type: object
+      required: [name, url, active, description, icon]
+      properties:
+        name:
+          type: string
+        url:
+          type: string
+        active:
+          type: boolean
+        description:
+          type: string
+        icon:
+          type: string
+
+    PrometheusConfig:
+      type: object
+      required: [scrapeInterval, evaluationInterval, retentionTime]
+      properties:
+        scrapeInterval:
+          type: string
+          description: "e.g. 15s"
+        evaluationInterval:
+          type: string
+          description: "e.g. 15s"
+        retentionTime:
+          type: string
+          description: "e.g. 15d"
+
+    AlertmanagerConfig:
+      type: object
+      properties:
+        slackWebhookUrl:
+          type: string
+        slackChannel:
+          type: string
+        discordWebhookUrl:
+          type: string
+        emailSmtpHost:
+          type: string
+        emailSmtpPort:
+          type: integer
+        emailFrom:
+          type: string
+        emailTo:
+          type: string
+
+    ConfigResult:
+      type: object
+      required: [success, message]
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
