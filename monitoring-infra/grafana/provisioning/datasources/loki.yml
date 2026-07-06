@@ -1,1 +1,18 @@
+apiVersion: 1
 
+datasources:
+  - name: Loki
+    type: loki
+    uid: loki-main
+    access: proxy
+    url: http://loki:3100
+    isDefault: false
+    editable: false
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        # Link from a Nginx log line directly to the Prometheus metric explorer
+        - name: TraceID
+          matcherRegex: 'rt=(?P<trace>[\d.]+)'
+          url: "http://localhost:9090/graph?g0.expr=nginx_connections_active"
+          datasourceUid: prometheus-main
