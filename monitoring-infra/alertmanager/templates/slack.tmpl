@@ -1,1 +1,42 @@
+{{ define "slack.color" -}}
+  {{- if eq .Status "firing" -}}
+    {{- if eq (index .Alerts 0).Labels.severity "critical" -}}danger
+    {{- else -}}warning
+    {{- end -}}
+  {{- else -}}good
+  {{- end -}}
+{{- end }}
 
+{{ define "slack.title" -}}
+  {{- if eq .Status "firing" -}}
+    {{- if eq (index .Alerts 0).Labels.severity "critical" -}}
+      🔴 CRITICAL — {{ .GroupLabels.alertname }}
+    {{- else -}}
+      🟡 WARNING — {{ .GroupLabels.alertname }}
+    {{- end -}}
+  {{- else -}}
+    ✅ RESOLVED — {{ .GroupLabels.alertname }}
+  {{- end -}}
+  {{- if .GroupLabels.instance }} on `{{ .GroupLabels.instance }}`{{ end }}
+{{- end }}
+
+{{ define "slack.text" -}}
+*Status:* {{ .Status | toUpper }}  |  *Alerts:* {{ len .Alerts }}
+{{ range .Alerts }}
+---
+*Alert:*  {{ .Labels.alertname }}
+*Severity:* {{ .Labels.severity }}
+{{- if .Labels.instance }}
+*Instance:* `{{ .Labels.instance }}`
+{{- end }}
+*Summary:* {{ .Annotations.summary }}
+*Details:* {{ .Annotations.description }}
+{{- if .Annotations.runbook }}
+*Runbook:* {{ .Annotations.runbook }}
+{{- end }}
+*Started:* {{ .StartsAt.Format "2006-01-02 15:04:05 UTC" }}
+{{- if eq $.Status "resolved" }}
+*Resolved:* {{ .EndsAt.Format "2006-01-02 15:04:05 UTC" }}
+{{- end }}
+{{ end -}}
+{{- end }}
