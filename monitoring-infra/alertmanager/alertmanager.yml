@@ -1,1 +1,106 @@
+global:
+  # How long to wait before re-sending a notification for an alert still firing
+  resolve_timeout: 5m
 
+  # Default SMTP settings (used by any email receiver)
+  smtp_smarthost:     "${EMAIL_SMTP_HOST}:${EMAIL_SMTP_PORT}"
+  smtp_from:          "${EMAIL_FROM}"
+  smtp_auth_username: "${EMAIL_USERNAME}"
+  smtp_auth_password: "${EMAIL_PASSWORD}"
+  smtp_require_tls:   true
+
+# Load notification templates from the templates directory
+templates:
+  - "/etc/alertmanager/templates/*.tmpl"
+
+# ── Routing tree ──────────────────────────────────────────────────────────────
+#
+# All alerts enter at the root route.
+# Child routes match on labels and override the receiver.
+# Unmatched alerts fall through to the root receiver (catch-all).
+#
+route:
+  receiver: slack-notifications      # catch-all / default receiver
+  group_by: [alertname, instance, severity]
+  group_wait:      30s               # wait to batch alerts in the same group
+  group_interval:  5m                # how often to re-notify about an ongoing group
+  repeat_interval: 4h                # how often to repeat a notification if still firing
+
+  routes:
+
+    # Critical alerts → immediate notification, shorter repeat
+    - match:
+        severity: critical
+      receiver: slack-notifications
+      group_wait:      10s
+      repeat_interval: 1h
+      continue: true                 # also evaluate sibling routes
+
+    # Critical alerts additionally go to email
+    - match:
+        severity: critical
+      receiver: email-notifications
+      group_wait:      10s
+      repeat_interval: 2h
+
+    # Warning alerts → standard cadence
+    - match:
+        severity: warning
+      receiver: slack-notifications
+      group_wait:      30s
+      repeat_interval: 4h
+
+# ── Inhibition rules ─────────────────────────────────────────────────────────
+#
+# When a critical alert is firing for an instance, suppress the corresponding
+# warning alerts for the same instance to reduce noise.
+#
+inhibit_rules:
+  - source_match:
+      severity: critical
+    target_match:
+      severity: warning
+    equal: [alertname, instance]
+
+  # If NodeExporterDown is firing, suppress all other node alerts for that instance
+  - source_match:
+      alertname: NodeExporterDown
+    target_match:
+      team: infrastructure
+    equal: [instance]
+
+# ── Receivers ────────────────────────────────────────────────────────────────
+
+receivers:
+
+  - name: slack-notifications
+    slack_configs:
+      - api_url: "${SLACK_WEBHOOK_URL}"
+        channel:  "${SLACK_CHANNEL}"
+        username: "Prometheus Alertmanager"
+        icon_emoji: ":fire:"
+        send_resolved: true
+        title: '{{ template "slack.title" . }}'
+        text:  '{{ template "slack.text" . }}'
+        color: '{{ template "slack.color" . }}'
+        actions:
+          - type: button
+            text: "View in Prometheus"
+            url:  "{{ (index .Alerts 0).GeneratorURL }}"
+
+  - name: discord-notifications
+    webhook_configs:
+      - url: "${DISCORD_WEBHOOK_URL}"
+        send_resolved: true
+        http_config: {}
+        title: '{{ template "discord.title" . }}'
+        # Discord uses the message field via a custom template
+        # See templates/discord.tmpl
+
+  - name: email-notifications
+    email_configs:
+      - to:           "${EMAIL_TO}"
+        send_resolved: true
+        headers:
+          Subject: '{{ template "email.subject" . }}'
+        html: '{{ template "email.html" . }}'
