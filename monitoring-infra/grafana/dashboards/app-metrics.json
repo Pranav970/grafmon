@@ -1,1 +1,504 @@
+{
+  "title": "Node.js Application Metrics",
+  "uid": "app-metrics",
+  "description": "Application-level metrics from prom-client: request rates, error rates, latency histograms, Node.js runtime health.",
+  "tags": ["application", "nodejs", "prom-client"],
+  "timezone": "browser",
+  "refresh": "15s",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "graphTooltip": 1,
+  "time": { "from": "now-30m", "to": "now" },
+  "timepicker": {},
+  "fiscalYearStartMonth": 0,
+  "links": [
+    { "title": "System Overview",    "url": "/d/system-overview",    "type": "link", "icon": "external link", "targetBlank": false },
+    { "title": "Application / Nginx","url": "/d/nginx-application",  "type": "link", "icon": "external link", "targetBlank": false }
+  ],
+  "annotations": { "list": [] },
+  "templating": { "list": [] },
+  "panels": [
 
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Request Rate",
+      "description": "HTTP requests per second (all routes, all status codes)",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "decimals": 2,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "yellow", "value": 100 },
+            { "color": "red",   "value": 500 }
+          ]},
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "auto", "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "targets": [{
+        "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+        "expr": "sum(rate(http_requests_total{job=\"target-app\"}[1m]))",
+        "legendFormat": "req/s", "refId": "A", "instant": true
+      }]
+    },
+
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "5xx Error Rate",
+      "description": "Percentage of requests returning a server error",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green",  "value": null },
+            { "color": "yellow", "value": 1 },
+            { "color": "red",    "value": 5 }
+          ]},
+          "mappings": [{ "type": "special", "options": { "match": "nan", "result": { "text": "0.00%", "color": "green" } } }]
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "auto", "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "targets": [{
+        "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+        "expr": "sum(rate(http_requests_total{job=\"target-app\",status_code=~\"5..\"}[5m])) / sum(rate(http_requests_total{job=\"target-app\"}[5m])) * 100",
+        "legendFormat": "5xx %", "refId": "A", "instant": true
+      }]
+    },
+
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "p99 Latency",
+      "description": "99th percentile response time across all routes",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 3,
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green",  "value": null },
+            { "color": "yellow", "value": 0.5 },
+            { "color": "red",    "value": 2 }
+          ]},
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "auto", "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "targets": [{
+        "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+        "expr": "histogram_quantile(0.99, sum by (le) (rate(http_request_duration_seconds_bucket{job=\"target-app\"}[5m])))",
+        "legendFormat": "p99", "refId": "A", "instant": true
+      }]
+    },
+
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "In-Flight Requests",
+      "description": "Requests currently being processed by the app",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green",  "value": null },
+            { "color": "yellow", "value": 20 },
+            { "color": "red",    "value": 50 }
+          ]},
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": { "colorMode": "background", "graphMode": "area", "justifyMode": "auto", "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "textMode": "auto" },
+      "targets": [{
+        "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+        "expr": "sum(http_requests_in_flight{job=\"target-app\"})",
+        "legendFormat": "in-flight", "refId": "A", "instant": true
+      }]
+    },
+
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "HTTP Request Rate by Route",
+      "description": "Requests per second split by route path. Shows which endpoints are receiving traffic.",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 10,
+            "gradientMode": "none", "showPoints": "never", "stacking": { "mode": "none", "group": "A" },
+            "axisPlacement": "auto", "scaleDistribution": { "type": "linear" },
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "thresholdsStyle": { "mode": "off" } },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["mean", "max", "last"] }
+      },
+      "targets": [{
+        "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+        "expr": "sum by (route) (rate(http_requests_total{job=\"target-app\"}[1m]))",
+        "legendFormat": "{{ route }}", "refId": "A"
+      }]
+    },
+
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Request Duration Percentiles (p50 / p90 / p99)",
+      "description": "Latency distribution over time. p99 spikes while p50 stays flat = outlier requests; p50 spikes = systemic slowdown.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 8,
+            "gradientMode": "opacity", "showPoints": "never", "stacking": { "mode": "none", "group": "A" },
+            "axisPlacement": "auto", "scaleDistribution": { "type": "linear" },
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "thresholdsStyle": { "mode": "line", "show": "line" } },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green",  "value": null },
+            { "color": "yellow", "value": 0.5 },
+            { "color": "red",    "value": 2 }
+          ]},
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": ["mean", "max"] }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+          "expr": "histogram_quantile(0.50, sum by (le) (rate(http_request_duration_seconds_bucket{job=\"target-app\"}[5m])))",
+          "legendFormat": "p50 (median)", "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+          "expr": "histogram_quantile(0.90, sum by (le) (rate(http_request_duration_seconds_bucket{job=\"target-app\"}[5m])))",
+          "legendFormat": "p90", "refId": "B"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_request_duration_seconds_bucket{job=\"target-app\"}[5m])))",
+          "legendFormat": "p99", "refId": "C"
+        }
+      ]
+    },
+
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "HTTP Responses by Status Class",
+      "description": "Request volume split by 2xx (success), 4xx (client error), 5xx (server error). 4xx and 5xx should stay near 0.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 12,
+            "gradientMode": "none", "showPoints": "never", "stacking": { "mode": "none", "group": "A" },
+            "axisPlacement": "auto", "scaleDistribution": { "type": "linear" },
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "thresholdsStyle": { "mode": "off" } },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "mappings": []
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "2xx Success" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "4xx Client Errors" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "5xx Server Errors" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] }
+        ]
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": ["mean", "max"] }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+          "expr": "sum(rate(http_requests_total{job=\"target-app\",status_code=~\"2..\"}[1m]))",
+          "legendFormat": "2xx Success", "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+          "expr": "sum(rate(http_requests_total{job=\"target-app\",status_code=~\"4..\"}[1m]))",
+          "legendFormat": "4xx Client Errors", "refId": "B"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+          "expr": "sum(rate(http_requests_total{job=\"target-app\",status_code=~\"5..\"}[1m]))",
+          "legendFormat": "5xx Server Errors", "refId": "C"
+        }
+      ]
+    },
+
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Request Duration by Route (p99)",
+      "description": "Per-route p99 latency. Use this to identify which specific route is causing latency spikes.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 0,
+            "gradientMode": "none", "showPoints": "never", "stacking": { "mode": "none", "group": "A" },
+            "axisPlacement": "auto", "scaleDistribution": { "type": "linear" },
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "thresholdsStyle": { "mode": "off" } },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true, "calcs": ["mean", "max"] }
+      },
+      "targets": [{
+        "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+        "expr": "histogram_quantile(0.99, sum by (le, route) (rate(http_request_duration_seconds_bucket{job=\"target-app\"}[5m])))",
+        "legendFormat": "{{ route }}", "refId": "A"
+      }]
+    },
+
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "In-Flight Requests Over Time",
+      "description": "Live count of requests being processed. A growing trend without a corresponding traffic increase = requests are stuck.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 20,
+            "gradientMode": "opacity", "showPoints": "never", "stacking": { "mode": "none", "group": "A" },
+            "axisPlacement": "auto", "scaleDistribution": { "type": "linear" },
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "thresholdsStyle": { "mode": "line", "show": "line" } },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green",  "value": null },
+            { "color": "yellow", "value": 20 },
+            { "color": "red",    "value": 50 }
+          ]},
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "single", "sort": "none" },
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": ["mean", "max", "last"] }
+      },
+      "targets": [{
+        "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+        "expr": "sum by (method) (http_requests_in_flight{job=\"target-app\"})",
+        "legendFormat": "{{ method }}", "refId": "A"
+      }]
+    },
+
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Node.js Heap Memory",
+      "description": "V8 heap memory usage. 'Used' approaching 'Total' means GC pressure. A saw-tooth pattern is healthy GC. A rising floor = memory leak.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 15,
+            "gradientMode": "none", "showPoints": "never", "stacking": { "mode": "none", "group": "A" },
+            "axisPlacement": "auto", "scaleDistribution": { "type": "linear" },
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "thresholdsStyle": { "mode": "off" } },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": ["mean", "max"] }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+          "expr": "nodejs_heap_size_used_bytes{job=\"target-app\"}",
+          "legendFormat": "Heap Used", "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+          "expr": "nodejs_heap_size_total_bytes{job=\"target-app\"}",
+          "legendFormat": "Heap Total", "refId": "B"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+          "expr": "nodejs_external_memory_bytes{job=\"target-app\"}",
+          "legendFormat": "External Memory", "refId": "C"
+        }
+      ]
+    },
+
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Node.js Event Loop Lag",
+      "description": "How long callbacks are waiting to run. >100ms = the event loop is blocked by synchronous work. p99 >500ms triggers an alert.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "lineWidth": 2, "fillOpacity": 10,
+            "gradientMode": "none", "showPoints": "never", "stacking": { "mode": "none", "group": "A" },
+            "axisPlacement": "auto", "scaleDistribution": { "type": "linear" },
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "thresholdsStyle": { "mode": "line", "show": "line" } },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green",  "value": null },
+            { "color": "yellow", "value": 0.1 },
+            { "color": "red",    "value": 0.5 }
+          ]},
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": ["mean", "max"] }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+          "expr": "nodejs_eventloop_lag_p50_seconds{job=\"target-app\"}",
+          "legendFormat": "p50 lag", "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+          "expr": "nodejs_eventloop_lag_p90_seconds{job=\"target-app\"}",
+          "legendFormat": "p90 lag", "refId": "B"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+          "expr": "nodejs_eventloop_lag_p99_seconds{job=\"target-app\"}",
+          "legendFormat": "p99 lag", "refId": "C"
+        }
+      ]
+    },
+
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Garbage Collection Duration",
+      "description": "Time spent in GC by type. Major GC pauses block the event loop. Frequent major GCs indicate memory pressure.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 36 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "bars", "lineInterpolation": "linear", "lineWidth": 1, "fillOpacity": 60,
+            "gradientMode": "none", "showPoints": "never", "stacking": { "mode": "normal", "group": "A" },
+            "axisPlacement": "auto", "scaleDistribution": { "type": "linear" },
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "thresholdsStyle": { "mode": "off" } },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": ["mean", "max"] }
+      },
+      "targets": [{
+        "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+        "expr": "sum by (gctype) (rate(nodejs_gc_duration_seconds_sum{job=\"target-app\"}[1m]))",
+        "legendFormat": "{{ gctype }}", "refId": "A"
+      }]
+    },
+
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Application Errors (custom counter)",
+      "description": "Errors explicitly counted by the app — route errors, unhandled promise rejections, uncaught exceptions.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 36 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "bars", "lineInterpolation": "linear", "lineWidth": 1, "fillOpacity": 70,
+            "gradientMode": "none", "showPoints": "never", "stacking": { "mode": "normal", "group": "A" },
+            "axisPlacement": "auto", "scaleDistribution": { "type": "linear" },
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false }, "thresholdsStyle": { "mode": "off" } },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "mappings": []
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*critical.*|.*exception.*" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] }
+        ]
+      },
+      "options": {
+        "tooltip": { "mode": "multi", "sort": "desc" },
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true, "calcs": ["sum"] }
+      },
+      "targets": [{
+        "datasource": { "type": "prometheus", "uid": "prometheus-main" },
+        "expr": "sum by (type) (increase(app_errors_total{job=\"target-app\"}[5m]))",
+        "legendFormat": "{{ type }}", "refId": "A"
+      }]
+    }
+
+  ]
+}
