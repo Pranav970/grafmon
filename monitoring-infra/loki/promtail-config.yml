@@ -1,1 +1,104 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+  log_level: warn
 
+positions:
+  # Tracks which log file positions have already been shipped.
+  # Persisted so Promtail resumes from the right offset on restart.
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+
+  # ── Docker container log discovery ────────────────────────────────────────────
+  # Promtail reads log files Docker writes to /var/lib/docker/containers/<id>/<id>-json.log
+  # and discovers container metadata via the Docker socket.
+  - job_name: docker-containers
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 10s
+        filters:
+          # Only scrape containers that are part of our monitoring stack
+          - name: network
+            values: ["monitoring"]
+
+    relabel_configs:
+      # ── Drop containers we don't want to log ──────────────────────────────────
+      # Keep only the containers we care about
+      - source_labels: [__meta_docker_container_name]
+        regex: "/(target-app|nginx-proxy|prometheus|alertmanager|grafana)"
+        action: keep
+
+      # ── Populate the 'container' label from container name ────────────────────
+      - source_labels: [__meta_docker_container_name]
+        regex: "/(.*)"
+        target_label: container
+
+      # ── Populate 'service' from Docker Compose service label ──────────────────
+      - source_labels: [__meta_docker_container_label_com_docker_compose_service]
+        target_label: service
+
+      # ── Set 'job' based on container to allow targeted LogQL queries ──────────
+      - source_labels: [__meta_docker_container_name]
+        regex: /nginx-proxy
+        replacement: nginx
+        target_label: job
+
+      - source_labels: [__meta_docker_container_name]
+        regex: /target-app
+        replacement: app
+        target_label: job
+
+      - source_labels: [__meta_docker_container_name]
+        regex: /prometheus
+        replacement: prometheus
+        target_label: job
+
+      - source_labels: [__meta_docker_container_name]
+        regex: /alertmanager
+        replacement: alertmanager
+        target_label: job
+
+      - source_labels: [__meta_docker_container_name]
+        regex: /grafana
+        replacement: grafana
+        target_label: job
+
+      # ── Set log path from Docker's metadata ───────────────────────────────────
+      - source_labels: [__meta_docker_container_log_stream]
+        target_label: stream
+
+    # Parse Nginx access log lines to extract structured fields as labels.
+    # Only applied to the nginx-proxy container.
+    pipeline_stages:
+
+      # Stage 1 — tag log level for application containers
+      - match:
+          selector: '{job="app"}'
+          stages:
+            - regex:
+                expression: '(?i)(?P<level>error|warn|info|debug)'
+            - labels:
+                level:
+
+      # Stage 2 — parse Nginx access log format into structured labels
+      # Log format: $remote_addr - $remote_user [$time_local] "$request" $status $body_bytes_sent "$http_referer" "$http_user_agent" rt=$request_time
+      - match:
+          selector: '{job="nginx"}'
+          stages:
+            - regex:
+                expression: '^(?P<remote_addr>\S+) - \S+ \[(?P<time_local>[^\]]+)\] "(?P<method>\S+) (?P<path>\S+) \S+" (?P<status>\d{3}) (?P<bytes_sent>\d+) "\S+" "(?P<user_agent>[^"]*)" rt=(?P<request_time>[\d.]+)'
+            - labels:
+                method:
+                status:
+                path:
+            - metrics:
+                http_requests_total:
+                  type: Counter
+                  description: "Total Nginx HTTP requests parsed by Promtail"
+                  source: status
+                  config:
+                    action: inc
