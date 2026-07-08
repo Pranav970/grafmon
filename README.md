@@ -13,8 +13,6 @@ Monitor host systems, application runtimes, and network layers effortlessly with
 ---
 
 ## 🗺️ Architectural Ecosystem
-
-
 ```
 
 ```
