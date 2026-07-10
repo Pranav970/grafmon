@@ -22,7 +22,7 @@ Monitor host systems, application runtimes, and network layers effortlessly with
                                    │
                                    ▼ (Port 8000)
 ┌──────────────────────────────────────────────────────────────────┐
-│              🎛️ CENTAL DEVOPS UI CONTROL PANEL                    │
+│              🎛️ CENTAL DEVOPS UI CONTROL PANEL                   │
 │   - State & Daemon Manager (Docker SDK/Shell Engine)             │
 │   - Live Stream Terminal Interface                               │
 │   - Automated Configuration Schema Generator                     │
@@ -34,7 +34,7 @@ Monitor host systems, application runtimes, and network layers effortlessly with
 ```
 
 ┌──────────────────────────────────────────┐               ┌───────────────────────────────────┐
-│     🌐 TARGET APPLICATION LAYER          │               │      📊 OBSERVABILITY LAYER       │
+│     🌐 TARGET APPLICATION LAYER          │              │      📊 OBSERVABILITY LAYER       │
 │                                          │               │                                   │
 │  ┌────────────────────────────────────┐  │               │  ┌─────────────────────────────┐  │
 │  │   Nginx Edge Proxy (Port 80)       │  │               │  │  Grafana Engine (Port 3000) │  │
@@ -45,14 +45,14 @@ Monitor host systems, application runtimes, and network layers effortlessly with
 │  │   Node.js Microservice (Port 3000) │  │               │  └──────────────▲──────────────┘  │
 │  └────────────────────────────────────┘  │               │                 │                 │
 └────────────────────┬─────────────────────┘               └─────────────────┼─────────────────┘
-│                                                       │
-│ (Exposes Telemetry Endpoints)                         │ (Pulls Metrics)
-▼                                                       │
+│                                                                            │
+│ (Exposes Telemetry Endpoints)                                              │ (Pulls Metrics)
+▼                                                                            │
 ┌────────────────────────────────────────────────────────────────────────────┴─────────────────┐
 │     📡 DATA EXPORTERS & LOG PIPELINES                                                        │
-│                                                                                              │
-│  🔹 Node Exporter (Port 9100)       ──► System Metrics (CPU, RAM, Disk, IO, Network)        │
-│  🔹 Nginx Prometheus Exporter       ──► Server Analytics (Connections, Handshakes, Traffic)   │
+│                                                                                               │
+│  🔹 Node Exporter (Port 9100)       ──► System Metrics (CPU, RAM, Disk, IO, Network)         │
+│  🔹 Nginx Prometheus Exporter       ──► Server Analytics (Connections, Handshakes, Traffic)  │
 │  🔹 App Instrumentation (/metrics)  ──► Node.js Application V8 Runtime & Custom Gauges       │
 │  🔹 Promtail Log Shipper            ──► Collects Container Stream Logs ──► Sent to Loki DB   │
 └──────────────────────────────────────────────────────────────────────────────────────────────┘
@@ -344,11 +344,11 @@ curl http://localhost:9100/metrics
 
 ## 📄 Licensing & Open Source Standalone Policies
 
-Distributed securely under the **MIT License**. Check out `LICENSE` documentation details inside the source root for full legal parameters.
+Distributed securely under the **MIT License**. Check out the `LICENSE` documentation details inside the source root for full legal parameters.
 
 ---
 
-Developed with 💙 by a SRE Architect. Keep your systems stable and your latency low!
+Developed with 💙 by an SRE Architect. Keep your systems stable and your latency low!
 
 ```
 
