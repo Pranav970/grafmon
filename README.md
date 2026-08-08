@@ -11,7 +11,7 @@ An ultra-modern, production-ready infrastructure telemetry stack. This system co
 Monitor host systems, application runtimes, and network layers effortlessly with a sleek, automated web interface.
 
 ---
-
+## Live link:- https://server-monitor-infra--pikachupikapik4.replit.app
 ## 🗺️ Architectural Ecosystem
 ```
 
